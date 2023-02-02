@@ -128,7 +128,7 @@ export class Client {
       this.security.addOptions(options)
     }
 
-    const securityHeader: string = this.security ? this.wsdl.objectToXML(this.security, null, alias, null) : ''
+    const securityHeader: string = this.security ? this.wsdl.objectToXML(this.security, null, alias, undefined) : ''
     const customHeader: string = exHeaders ? this.wsdl.complexObjectToXML(exHeaders, null) : ''
 
     // Supports only objects for now
