@@ -1,0 +1,15 @@
+{
+  "include": ["src/**/*", "node-xml"],
+  "compilerOptions": {
+    "typeRoots": ["src/@types", "node_modules/@types"],
+    "moduleResolution":"node",
+    "outDir": "lib",
+    "sourceMap": true,
+    "declaration": true,
+    "stripInternal": true,
+    "target": "esnext",
+    "module": "esnext",
+    "strict": true,
+    "strictNullChecks": true,
+  }
+}
