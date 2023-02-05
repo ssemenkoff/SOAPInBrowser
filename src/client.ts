@@ -1,5 +1,5 @@
 import { request } from './http'
-import { type WSDL } from './wsdl'
+import type { WSDL } from './wsdl'
 
 type Port = Record<string, unknown>
 type Sevice = Record<string, unknown>
@@ -9,8 +9,8 @@ function findKey (obj: Record<string, any>, val: any): string | undefined {
 }
 
 export class Client {
-  public readonly wsdl: WSDL
-  [key: string]: any
+  public readonly wsdl: WSDL;
+  [key: string]: any;
   endpoint: string
   security: any
 
@@ -22,7 +22,7 @@ export class Client {
 
   public setEndpoint (endpoint: string): void {
     this.endpoint = endpoint
-    this._initializeServices(this.endpoint)
+    this._initializeServices(this.endpoint, true)
   }
 
   public describe (): any {
@@ -37,30 +37,38 @@ export class Client {
     this.SOAPAction = SOAPAction
   }
 
-  private _initializeServices (endpoint: string): void {
+  private _initializeServices (
+    endpoint: string,
+    forceReinit: boolean = false
+  ): void {
     const definitions = this.wsdl.definitions
     const services = definitions.services as Record<string, any>
 
     for (const name in services) {
-      this[name] = this._defineService(services[name], endpoint)
+      this[name] = this._defineService(services[name], endpoint, forceReinit)
     }
   }
 
-  private _defineService (service: any, endpoint: string): Sevice {
+  private _defineService (
+    service: any,
+    endpoint: string,
+    forceReinit: boolean
+  ): Sevice {
     const ports = service.ports
     const def: any = {}
 
     for (const name in ports) {
       def[name] = this._definePort(
         ports[name],
-        endpoint || ports[name].location
+        endpoint || ports[name].location,
+        forceReinit
       )
     }
 
     return def
   }
 
-  private _definePort (port: any, endpoint: string): Port {
+  private _definePort (port: any, endpoint: string, forceReinit: boolean): Port {
     const {
       binding: { methods }
     } = port
@@ -72,8 +80,12 @@ export class Client {
       def[name] = this._defineMethod(methods[name], endpoint)
       def[formatedName] = this._defineMethodAsync(methods[name], endpoint)
 
-      if (this[name]) { throw new Error(`Method with name ${name} already exists`) }
-      if (this[formatedName]) { throw new Error(`Method with name ${formatedName} already exists`) }
+      if (this[name] && !forceReinit) {
+        throw new Error(`Method with name ${name} already exists`)
+      }
+      if (this[formatedName] && !forceReinit) {
+        throw new Error(`Method with name ${formatedName} already exists`)
+      }
 
       this[formatedName] = def[formatedName]
       this[name] = def[name]
@@ -83,7 +95,10 @@ export class Client {
   }
 
   private _defineMethod (method: any, location: string) {
-    return async (args: any, callback: (result: Record<string, any>) => void) => {
+    return async (
+      args: any,
+      callback: (result: Record<string, any>) => void
+    ) => {
       await this._invoke(method, args, location).then((result) => {
         callback(result)
       })
@@ -97,7 +112,11 @@ export class Client {
     }
   }
 
-  private async _invoke (method: any, args: any, location: string): Promise<Record<string, any>> {
+  private async _invoke (
+    method: any,
+    args: any,
+    location: string
+  ): Promise<Record<string, any>> {
     const {
       name,
       input
@@ -112,7 +131,9 @@ export class Client {
     const headers = {
       SOAPAction: this.SOAPAction
         ? this.SOAPAction(ns, name)
-        : `${(ns.lastIndexOf('/') !== ns.length - 1 ? `${ns}/` : ns)}${name as string}`,
+        : `${ns.lastIndexOf('/') !== ns.length - 1 ? `${ns}/` : ns}${
+            name as string
+          }`,
       'Content-Type': 'text/xml; charset=utf-8'
     }
     const exHeaders = args.Headers
@@ -128,8 +149,12 @@ export class Client {
       this.security.addOptions(options)
     }
 
-    const securityHeader: string = this.security ? this.wsdl.objectToXML(this.security, null, alias, undefined) : ''
-    const customHeader: string = exHeaders ? this.wsdl.complexObjectToXML(exHeaders, null) : ''
+    const securityHeader: string = this.security
+      ? this.wsdl.objectToXML(this.security, null, alias, undefined)
+      : ''
+    const customHeader: string = exHeaders
+      ? this.wsdl.complexObjectToXML(exHeaders, null)
+      : ''
 
     // Supports only objects for now
     message = this.wsdl.objectToDocumentXML(
@@ -144,10 +169,10 @@ export class Client {
       // `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" ${encoding} ${this.wsdl.xmlnsInEnvelope}'>'` +
       `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" ${this.wsdl.xmlnsInEnvelope}>` +
       '<soap:Header>' +
-        `${securityHeader}${customHeader}` +
+      `${securityHeader}${customHeader}` +
       '</soap:Header>' +
       '<soap:Body>' +
-        message +
+      message +
       '</soap:Body>' +
       '</soap:Envelope>'
 

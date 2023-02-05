@@ -14,7 +14,10 @@ async function _requestWSDL (url: string, options: any = {}): Promise<WSDL> {
   return await openWSDL(url, options)
 }
 
-export async function createClient (url: string, options: any = {}): Promise<Client> {
+export async function createClient (
+  url: string,
+  options: any = {}
+): Promise<Client> {
   const wsdl = await _requestWSDL(url, options)
   return new Client(wsdl, options.endpoint)
 }
@@ -29,7 +32,10 @@ export class BasicAuthSecurity {
   }
 
   public addHeaders (headers: Record<string, string>): void {
-    const bufferedCreds = Buffer.from(`${this._username}:${this._password}`, 'base64').toString('binary')
+    const bufferedCreds = Buffer.from(
+      `${this._username}:${this._password}`,
+      'base64'
+    ).toString('binary')
     headers.Authorization = `Basic ${bufferedCreds}`
   }
 

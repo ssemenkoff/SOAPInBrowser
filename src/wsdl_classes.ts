@@ -29,41 +29,27 @@ const Primitives: Record<string, number> = {
   NOTATION: 0
 }
 
-export function splitNSName (nsName: string): { namespace: string | null, name: string } {
+export function splitNSName (nsName: string): {
+  namespace: string | null
+  name: string
+} {
   const index = nsName != null ? nsName.indexOf(':') : -1
 
   return index < 0
     ? { namespace: null, name: nsName }
-    : { namespace: nsName.substring(0, index), name: nsName.substring(index + 1) }
+    : {
+        namespace: nsName.substring(0, index),
+        name: nsName.substring(index + 1)
+      }
 }
-
-// function xmlEscape (obj: any) {
-//   if (typeof obj === 'string') {
-//     return obj
-//       .replace(/&/g, '&amp;')
-//       .replace(/</g, '&lt;')
-//       .replace(/>/g, '&gt;')
-//       .replace(/"/g, '&quot;')
-//       .replace(/'/g, '&apos;')
-//   }
-
-//   return obj
-// }
-
-// const trimLeft = /^[\s\xA0]+/
-// const trimRight = /[\s\xA0]+$/
-
-// function trim (text) {
-//   return text.replace(trimLeft, '').replace(trimRight, '')
-// }
 
 export class BaseElement {
   protected nsName?: string
   protected namespace?: string
   protected name?: string
   protected children?: any[]
-  protected xmlns: any
-  [key: string]: any
+  protected xmlns: any;
+  [key: string]: any;
   public allowedChildren: Record<string, unknown> = {}
   public allowedChildrenList = '_fault'
 
@@ -91,8 +77,10 @@ export class BaseElement {
 
   protected _parseAllowedTypes (): void {
     const typesAllowed = this.allowedChildrenList.split(' ')
-    typesAllowed.forEach(type => {
-      this.allowedChildren[type.replace(/^_/, '')] = (ElementTypeMap[type] || [BaseElement])[0]
+    typesAllowed.forEach((type) => {
+      this.allowedChildren[type.replace(/^_/, '')] = (ElementTypeMap[type] || [
+        BaseElement
+      ])[0]
     })
   }
 
@@ -148,7 +136,7 @@ export class BaseElement {
 }
 
 export class ElementElement extends BaseElement {
-  [key: string]: any
+  [key: string]: any;
 
   constructor (nsName: string, attrs: any) {
     const allowedChildrenList = ElementTypeMap.element[1]
@@ -175,7 +163,9 @@ export class ElementElement extends BaseElement {
       const children = this.children ?? []
       element[name] = {}
       for (let i = 0, child; (child = children[i]); i++) {
-        if (child instanceof ComplexTypeElement) { element[name] = child.description(definitions) }
+        if (child instanceof ComplexTypeElement) {
+          element[name] = child.description(definitions)
+        }
       }
     }
     return element
@@ -183,7 +173,7 @@ export class ElementElement extends BaseElement {
 }
 
 export class ComplexTypeElement extends BaseElement {
-  [key: string]: any
+  [key: string]: any;
 
   constructor (nsName: string, attrs: any) {
     const allowedChildrenList = ElementTypeMap.complexType[1]
@@ -276,7 +266,7 @@ export class SchemaElement extends BaseElement {
       if (location) {
         this.includes.push({
           namespace:
-          child.$namespace || child.$targetNamespace || this.$targetNamespace,
+            child.$namespace || child.$targetNamespace || this.$targetNamespace,
           location
         })
       }
@@ -300,7 +290,9 @@ export class SimpleTypeElement extends BaseElement {
   override description (): string | Record<string, unknown> {
     const children = this.children ?? []
     for (let i = 0, child; (child = children[i]); i++) {
-      if (child instanceof RestrictionElement) { return `${this.$name as string} | ${child.description() as string}` }
+      if (child instanceof RestrictionElement) {
+        return `${this.$name as string} | ${child.description() as string}`
+      }
     }
     return {}
   }
@@ -331,7 +323,7 @@ export class EnumerationElement extends BaseElement {
     super(nsName, attrs, allowedChildrenList)
   }
 
-  public override description (definitions: any): string | Record<string, unknown> {
+  public override description (): string | Record<string, unknown> {
     return this.$value
   }
 }
@@ -346,7 +338,9 @@ export class ServiceElement extends BaseElement {
     this.ports = {}
   }
 
-  public override description (definitions: any): string | Record<string, unknown> {
+  public override description (
+    definitions: any
+  ): string | Record<string, unknown> {
     const ports: Record<string, unknown> = {}
     for (const name in this.ports) {
       const port: any = this.ports[name]
@@ -446,7 +440,9 @@ export class BindingElement extends BaseElement {
     this.deleteFixedAttrs()
   }
 
-  public override description (definitions: any): string | Record<string, unknown> {
+  public override description (
+    definitions: any
+  ): string | Record<string, unknown> {
     const methods: Record<string, unknown> = {}
     for (const name in this.methods) {
       const method: any = this.methods[name]
@@ -479,7 +475,9 @@ export class PortTypeElement extends BaseElement {
     this.deleteFixedAttrs()
   }
 
-  public override description (definitions: any): string | Record<string, unknown> {
+  public override description (
+    definitions: any
+  ): string | Record<string, unknown> {
     const methods: Record<string, unknown> = {}
     for (const name in this.methods) {
       const method: any = this.methods[name]
@@ -546,7 +544,9 @@ export class MessageElement extends BaseElement {
     this.deleteFixedAttrs()
   }
 
-  public override description (definitions: any): string | Record<string, unknown> {
+  public override description (
+    definitions: any
+  ): string | Record<string, unknown> {
     if (this.element) {
       return this.element?.description(definitions)
     }
@@ -592,7 +592,9 @@ export class OperationElement extends BaseElement {
     this.deleteFixedAttrs()
   }
 
-  public override description (definitions: any): string | Record<string, unknown> {
+  public override description (
+    definitions: any
+  ): string | Record<string, unknown> {
     const inputDesc = this.input.description(definitions)
     const outputDesc = this.output.description(definitions)
     return {
@@ -675,7 +677,9 @@ export class DefinitionsElement extends BaseElement {
       if (
         child.transport === 'http://schemas.xmlsoap.org/soap/http' ||
         child.transport === 'http://www.w3.org/2003/05/soap/bindings/HTTP/'
-      ) { this.bindings[child.$name] = child }
+      ) {
+        this.bindings[child.$name] = child
+      }
     } else if (child instanceof ServiceElement) {
       this.services[child.$name] = child
     }

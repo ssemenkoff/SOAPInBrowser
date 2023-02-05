@@ -1,7 +1,8 @@
 import { BasicAuthSecurity, createClient } from '../src/soap'
 import { assert, expect, test } from 'vitest'
 
-const clientPromise = createClient('http://127.0.0.1:8081/xmla.wsdl');
+const clientPromise = createClient('http://127.0.0.1:8080/xmla.wsdl');
+
 
 test('Encode credentials', () => {
   const a = new BasicAuthSecurity('Test', 'Test');
@@ -59,7 +60,6 @@ test('Get catalogs', async () => {
     }
   );
 
-  console.log(discoverDatasourcesResponce.Body.DiscoverResponse.return[0].root);
   expect(discoverDatasourcesResponce).toBeDefined()
 })
 
@@ -72,6 +72,5 @@ test('Get cubes', async () => {
     Properties:''
   });
 
-  console.log(discoverDatasourcesResponce.Body.DiscoverResponse.return[0].root);
   expect(discoverDatasourcesResponce).toBeDefined()
 })

@@ -1,7 +1,13 @@
-import xmlParser from '../node-xml/index'
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import xmlParser from '../node-xml'
 import { request } from './http'
-import { BaseElement, splitNSName, DefinitionsElement, SchemaElement, type ServiceElement } from './wsdl_classes'
-import { URL } from 'node:url'
+import {
+  BaseElement,
+  splitNSName,
+  DefinitionsElement,
+  SchemaElement,
+  type ServiceElement
+} from './wsdl_classes'
 
 interface WSDLOptions {
   strict?: boolean
@@ -37,7 +43,11 @@ export class WSDL {
   private readonly readyPromise: Promise<any>
   private readonly readyPromiseResolveFn: (any: unknown) => void
 
-  constructor (definition: string, uri: string | URL, options: WSDLOptions = {}) {
+  constructor (
+    definition: string,
+    uri: string | URL,
+    options: WSDLOptions = {}
+  ) {
     let resolveTmp = (value: any): void => {}
     this.uri = uri
     this.options = options
@@ -47,53 +57,55 @@ export class WSDL {
     this.readyPromiseResolveFn = resolveTmp
 
     if (typeof definition !== 'string') {
-      throw new Error(
-        'WSDL constructor takes an XML string'
-      )
+      throw new Error('WSDL constructor takes an XML string')
     }
 
     this._fromXML(definition)
-    this.processIncludes().then(() => {
-      (this.definitions as any).deleteFixedAttrs()
+    this.processIncludes()
+      .then(() => {
+        (this.definitions as any).deleteFixedAttrs()
 
-      const services = (this.services = this.definitions.services as Record<string, unknown>)
-      if (services) {
-        for (const name in services) {
-          (services[name] as any).postProcess(this.definitions)
-        }
-      }
-
-      const complexTypes: Record<string, unknown> = this.definitions.complexTypes as Record<string, unknown>
-      if (complexTypes) {
-        for (const name in complexTypes) {
-          (complexTypes[name] as any).deleteFixedAttrs()
-        }
-      }
-
-      const bindings = this.definitions.bindings as Record<string, unknown>
-      for (const bindingName in bindings) {
-        const binding: any = bindings[bindingName]
-        if (binding.style !== 'document') continue
-        const methods = binding.methods
-
-        binding.topElements = {}
-
-        for (const methodName in methods) {
-          const inputName = methods[methodName].input.$name
-          const outputName = methods[methodName].output.$name
-          binding.topElements[inputName] = {
-            methodName,
-            outputName
+        const services = (this.services = this.definitions.services as Record<
+        string,
+        unknown
+        >)
+        if (services) {
+          for (const name in services) {
+            (services[name] as any).postProcess(this.definitions)
           }
         }
-      }
 
-      this.xmlnsInEnvelope = this.xmlnsMap()
+        const complexTypes: Record<string, unknown> = this.definitions
+          .complexTypes as Record<string, unknown>
+        if (complexTypes) {
+          for (const name in complexTypes) {
+            (complexTypes[name] as any).deleteFixedAttrs()
+          }
+        }
 
-      this.readyPromiseResolveFn(null)
-    }).catch(() => {
+        const bindings = this.definitions.bindings as Record<string, unknown>
+        for (const bindingName in bindings) {
+          const binding: any = bindings[bindingName]
+          if (binding.style !== 'document') continue
+          const methods = binding.methods
 
-    })
+          binding.topElements = {}
+
+          for (const methodName in methods) {
+            const inputName = methods[methodName].input.$name
+            const outputName = methods[methodName].output.$name
+            binding.topElements[inputName] = {
+              methodName,
+              outputName
+            }
+          }
+        }
+
+        this.xmlnsInEnvelope = this.xmlnsMap()
+
+        this.readyPromiseResolveFn(null)
+      })
+      .catch(() => {})
   }
 
   private _fromXML (xml: string): void {
@@ -109,42 +121,54 @@ export class WSDL {
     const stack: any[] = []
     let root: any = null
 
-    pHandler.onStartElementNS((nsName: string, attrs: string[][], prefix: string, uri: string, namespaces: string[][]) => {
-      nsName = prefix ? prefix + ':' + nsName : nsName
-      const parsedAttrs = attrs.reduce<Record<string, string>>(function (res, value) {
-        res[value[0]] = value[1]
-        return res
-      }, {})
+    pHandler.onStartElementNS(
+      (
+        nsName: string,
+        attrs: string[][],
+        prefix: string,
+        uri: string,
+        namespaces: string[][]
+      ) => {
+        nsName = prefix ? prefix + ':' + nsName : nsName
+        const parsedAttrs = attrs.reduce<Record<string, string>>(function (
+          res,
+          value
+        ) {
+          res[value[0]] = value[1]
+          return res
+        },
+        {})
 
-      namespaces.forEach(function (e) {
-        const nsName = e[0]
-        const nsUrl = e[1]
-        parsedAttrs['xmlns' + (nsName ? ':' : '') + nsName] = nsUrl
-      })
+        namespaces.forEach(function (e) {
+          const nsName = e[0]
+          const nsUrl = e[1]
+          parsedAttrs['xmlns' + (nsName ? ':' : '') + nsName] = nsUrl
+        })
 
-      const top = stack[stack.length - 1]
-      if (top) {
-        try {
-          top.startElement(stack, nsName, parsedAttrs)
-        } catch (e) {
-          if (this.options.strict) {
-            throw e
-          } else {
-            stack.push(new BaseElement(nsName, parsedAttrs))
+        const top = stack[stack.length - 1]
+        if (top) {
+          try {
+            top.startElement(stack, nsName, parsedAttrs)
+          } catch (e) {
+            if (this.options.strict) {
+              throw e
+            } else {
+              stack.push(new BaseElement(nsName, parsedAttrs))
+            }
           }
-        }
-      } else {
-        const name = splitNSName(nsName).name
-        if (name === 'definitions') {
-          root = new DefinitionsElement(nsName, parsedAttrs)
-        } else if (name === 'schema') {
-          root = new SchemaElement(nsName, parsedAttrs)
         } else {
-          throw new Error('Unexpected root element of WSDL or include')
+          const name = splitNSName(nsName).name
+          if (name === 'definitions') {
+            root = new DefinitionsElement(nsName, parsedAttrs)
+          } else if (name === 'schema') {
+            root = new SchemaElement(nsName, parsedAttrs)
+          } else {
+            throw new Error('Unexpected root element of WSDL or include')
+          }
+          stack.push(root)
         }
-        stack.push(root)
       }
-    })
+    )
 
     pHandler.onEndElementNS(function (name: string, prefix: string) {
       name = prefix ? prefix + ':' + name : name
@@ -173,15 +197,21 @@ export class WSDL {
 
     if (!include) return
 
-    // const uri = this.uri.toString()
-    const base = 'http://127.0.0.1:8081'
+    let currentURL;
+
+    try {
+      currentURL = new URL(this.uri, window.location.href)
+    } catch (e) {
+      currentURL = new URL(this.uri)
+    }
+
+    const base = currentURL?.href || 'http://127.0.0.1:8081'
     const rurl = new URL(include.location, base)
     const wsdl = await openWSDL(rurl)
 
     const schemas: any = this.definitions.schemas
-    schemas[
-      include.namespace || wsdl.definitions.$targetNamespace
-    ] = wsdl.definitions
+    schemas[include.namespace || wsdl.definitions.$targetNamespace] =
+      wsdl.definitions
 
     await this.processNextInclude(includes)
   }
@@ -212,7 +242,12 @@ export class WSDL {
     await this.readyPromise
   }
 
-  public objectToXML (obj: any, name: string | null, namespace?: string, xmlns?: string): string {
+  public objectToXML (
+    obj: any,
+    name: string | null,
+    namespace?: string,
+    xmlns?: string
+  ): string {
     const parts = []
     const xmlnsAttrib = ''
     const ns = namespace ? namespace + ':' : ''
@@ -254,7 +289,9 @@ export class WSDL {
       for (const a in attrs) {
         if (typeof attrs[a] !== 'string') {
           throw new Error(
-            `Wrong type of attribute ${a} in element with name ${name ?? 'not specified'}. Attributes should be strings.`
+            `Wrong type of attribute ${a} in element with name ${
+              name ?? 'not specified'
+            }. Attributes should be strings.`
           )
         } else {
           attrsString = attrsString.concat(` ${a}="${attrs[a] as string}"`)
@@ -288,7 +325,12 @@ export class WSDL {
     return services
   }
 
-  public objectToDocumentXML (name: string, params: any, ns: string, xmlns: string): string {
+  public objectToDocumentXML (
+    name: string,
+    params: any,
+    ns: string,
+    xmlns: string
+  ): string {
     const args: Record<string, any> = {}
     args[name] = params
     return this.objectToXML(args, null, ns, xmlns)
@@ -327,75 +369,83 @@ export class WSDL {
     let id
 
     // p.on('startElement', function(nsName, attrs) {
-    pHandler.onStartElementNS((nsName: string, attrs: any, prefix: string, uri: string, namespaces: string[][]) => {
-      nsName = prefix ? prefix + ':' + nsName : nsName
-      attrs = attrs.reduce((res: Record<string, any>, value: any[]) => {
-        res[value[0]] = value[1]
-        return res
-      }, {})
-      namespaces.forEach((e: string[]) => {
-        const nsName: string = e[0]
-        const nsUrl = e[1]
-        attrs[`xmlns${nsName ? ':' : ''}${nsName}`] = nsUrl
-      })
+    pHandler.onStartElementNS(
+      (
+        nsName: string,
+        attrs: any,
+        prefix: string,
+        uri: string,
+        namespaces: string[][]
+      ) => {
+        nsName = prefix ? prefix + ':' + nsName : nsName
+        attrs = attrs.reduce((res: Record<string, any>, value: any[]) => {
+          res[value[0]] = value[1]
+          return res
+        }, {})
+        namespaces.forEach((e: string[]) => {
+          const nsName: string = e[0]
+          const nsUrl = e[1]
+          attrs[`xmlns${nsName ? ':' : ''}${nsName}`] = nsUrl
+        })
 
-      let name = splitNSName(nsName).name
-      const top = stack[stack.length - 1]
-      let topSchema: Record<string, any> = top.schema
-      const obj = {}
-      const originalName = name
+        let name = splitNSName(nsName).name
+        const top = stack[stack.length - 1]
+        let topSchema: Record<string, any> = top.schema
+        const obj = {}
+        const originalName = name
 
-      if (!objectName && top.name === 'Body' && name !== 'Fault') {
-        const messages = this.definitions.messages as Record<string, any>
-        let message = messages[name]
-        // Support RPC/literal messages where response body contains one element named
-        // after the operation + 'Response'. See http://www.w3.org/TR/wsdl#_names
-        if (!message) {
-        // Determine if this is request or response
-          let isInput = false
-          if (/Response$/.test(name)) {
-            name = name.replace(/Response$/, '')
-          } else if (/Request$/.test(name)) {
-            isInput = true
-            name = name.replace(/Request$/, '')
-          } else if (/Solicit$/.test(name)) {
-            isInput = true
-            name = name.replace(/Solicit$/, '')
+        if (!objectName && top.name === 'Body' && name !== 'Fault') {
+          const messages = this.definitions.messages as Record<string, any>
+          let message = messages[name]
+          // Support RPC/literal messages where response body contains one element named
+          // after the operation + 'Response'. See http://www.w3.org/TR/wsdl#_names
+          if (!message) {
+            // Determine if this is request or response
+            let isInput = false
+            if (/Response$/.test(name)) {
+              name = name.replace(/Response$/, '')
+            } else if (/Request$/.test(name)) {
+              isInput = true
+              name = name.replace(/Request$/, '')
+            } else if (/Solicit$/.test(name)) {
+              isInput = true
+              name = name.replace(/Solicit$/, '')
+            }
+            // Look up the appropriate message as given in the portType's operations
+            const portTypes = this.definitions.portTypes as Record<string, any>
+            const portTypeNames = Object.keys(portTypes)
+            // Currently this supports only one portType definition.
+            const portType = portTypes[portTypeNames[0]]
+            if (isInput) name = portType.methods[name].input.$name
+            else name = portType.methods[name].output.$name
+            message = messages[name]
+            // 'cache' this alias to speed future lookups
+            messages[originalName] = messages[name]
           }
-          // Look up the appropriate message as given in the portType's operations
-          const portTypes = this.definitions.portTypes as Record<string, any>
-          const portTypeNames = Object.keys(portTypes)
-          // Currently this supports only one portType definition.
-          const portType = portTypes[portTypeNames[0]]
-          if (isInput) name = portType.methods[name].input.$name
-          else name = portType.methods[name].output.$name
-          message = messages[name]
-          // 'cache' this alias to speed future lookups
-          messages[originalName] = messages[name]
+
+          topSchema = message.description(this.definitions)
+          objectName = originalName
         }
 
-        topSchema = message.description(this.definitions)
-        objectName = originalName
-      }
+        if (attrs.href) {
+          id = attrs.href.substr(1)
+          if (!refs[id]) refs[id] = { hrefs: [], obj: null }
+          refs[id].hrefs.push({ par: top.object, key: name })
+        }
+        if ((id = attrs.id)) {
+          if (!refs[id]) refs[id] = { hrefs: [], obj: null }
+        }
 
-      if (attrs.href) {
-        id = attrs.href.substr(1)
-        if (!refs[id]) refs[id] = { hrefs: [], obj: null }
-        refs[id].hrefs.push({ par: top.object, key: name })
+        if (topSchema && topSchema[name + '[]']) name = name + '[]'
+        stack.push({
+          name: originalName,
+          object: obj,
+          schema: topSchema?.[name],
+          id: attrs.id,
+          __attrs: attrs
+        })
       }
-      if ((id = attrs.id)) {
-        if (!refs[id]) refs[id] = { hrefs: [], obj: null }
-      }
-
-      if (topSchema && topSchema[name + '[]']) name = name + '[]'
-      stack.push({
-        name: originalName,
-        object: obj,
-        schema: topSchema?.[name],
-        id: attrs.id,
-        __attrs: attrs
-      })
-    })
+    )
 
     // p.on('endElement', function(nsName) {
     pHandler.onEndElementNS(function (nsName: string, prefix: string) {
@@ -445,7 +495,7 @@ export class WSDL {
       } else if (name === 'dateTime') {
         value = new Date(text)
       } else {
-      // handle string or other types
+        // handle string or other types
         if (typeof top.object !== 'string') {
           value = text
         } else {
@@ -461,7 +511,10 @@ export class WSDL {
     for (const n in refs) {
       const ref = refs[n]
       const obj = ref.obj
-      ref.hrefs.forEach(function (href: { par: Record<string, any>, key: string | number }) {
+      ref.hrefs.forEach(function (href: {
+        par: Record<string, any>
+        key: string | number
+      }) {
         href.par[href.key] = obj
       })
     }
@@ -470,7 +523,10 @@ export class WSDL {
   }
 }
 
-export async function openWSDL (uri: string | URL, options?: any): Promise<WSDL> {
+export async function openWSDL (
+  uri: string | URL,
+  options?: any
+): Promise<WSDL> {
   const responce = await request(uri, null)
 
   const wsdlDef = await responce.text()
